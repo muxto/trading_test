@@ -21,10 +21,7 @@ namespace trading
         private void UpdateSellPrice() => SellPriceList.Add(CurrentSellPrice);
 
         private decimal AverageSellPrice => SellPriceList.Average();
-
-
-        private decimal buyCount = 0;
-        private decimal sellCount = 0;
+        private decimal AverageSellPrice100 => SellPriceList.TakeLast(100).Average();
 
 
         private int GetExtremum ()
@@ -67,6 +64,7 @@ namespace trading
         {
         }
 
+      
 
         protected override bool BuyDecision()
         {
@@ -88,36 +86,45 @@ namespace trading
             //   }
 
             //   return false;
+            //
+            //    var simpleBuy = BuyDecisionSimple();
+            //    if (simpleBuy) return true;
 
-          var simpleBuy = BuyDecisionSimple();
-          if (simpleBuy) return true;
+            //    var moreBuy = BuyDecisionMore();
+            //    if (moreBuy) return true;
 
-        //    var moreBuy = BuyDecisionMore();
-        //    if (moreBuy) return true;
+          //  var simpleBuyEnoughBudget = TotalStonks < (Total * 0.5m);
+          //  if (!simpleBuyEnoughBudget) return false;
 
-            //  var extremum = GetExtremum();
-            //  if (extremum < 0)
-            //  {
-            //      return true;
-            //  }
+            var simpleBuy = BuyDecisionSimple();
+            if (simpleBuy) return true;
+
+            var extremum = GetExtremum();
+          if (extremum < 0)
+          {
+             var averageBuyEnoughBudget = TotalStonks < (Total *0.5m);
+             if (!averageBuyEnoughBudget) return false;
+            
+                 var averageBuy = BuyDecisionAverage();
+                 if (averageBuy) return true;
+            }
 
 
             // return false;
 
-            // var averageBuyEnoughBudget = TotalStonks <= Money/3;
-            // if (!averageBuyEnoughBudget) return false;
-
-            // return true;
-            //
-            //   var averageBuy = BuyDecisionAverage();
-            //   if (averageBuy) return true;
+            //   var averageBuyEnoughBudget = TotalStonks < (Total / 4);
+            //   if (!averageBuyEnoughBudget) return false;
+            //  
+            //       var averageBuy = BuyDecisionAverage();
+            //       if (averageBuy) return true;
 
             return false;
 
             bool BuyDecisionSimple()
             {
+                var pricaAndFee =  GetPriceAndFeeBuy(CurrentBuyPrice);
                 // докупаем, когда цена покупки с комиссией и лимитом все равно меньше средней
-                var simpleBuy = (AveragePrice - _buyLimit) > GetPriceAndFeeBuy(CurrentBuyPrice);
+                var simpleBuy = (AveragePrice - _buyLimit) > pricaAndFee;
                 return simpleBuy;
             }
 
@@ -131,6 +138,18 @@ namespace trading
 
             bool BuyDecisionAverage()
             {
+                // return true;
+                 return AveragePrice < AverageSellPrice;
+
+                var decisionAverage = AveragePrice < AverageSellPrice100;
+
+                if (decisionAverage)
+                {
+
+                }
+
+                return decisionAverage;
+
                 // докупаем, если покупка даст выгодное усреднение на текущую цену продажи
                 var newAveragePrice = ((Balance * AveragePrice) + CurrentBuyPrice) / (Balance + 1);
 
@@ -152,11 +171,11 @@ namespace trading
             UpdateSellPrice();
 
 
-          //  var extremum = GetExtremum();
-          //  if (extremum > 0)
-          //  {
-                return SellDecision(AveragePrice);
-          //  }
+         var extremum = GetExtremum();
+        if (extremum > 0)
+         {
+           return SellDecision(AveragePrice);
+         }
         
             return false;
 

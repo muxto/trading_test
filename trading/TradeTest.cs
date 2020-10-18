@@ -14,7 +14,7 @@ namespace trading
         // разница в покупке-продаже в %
         // public double SpreadDiff = 0.01;
         // разница в покупке-продаже в $
-        private decimal SpreadDiffDollar = 0.06m;
+        private decimal SpreadDiffDollar = 0.02m;
 
         private decimal InitMoney = 1000m;
         private decimal BrokerFee = 0.0005m;
@@ -93,22 +93,30 @@ namespace trading
         }
 
 
-        private PriceSourceBase [] GetPrices()
+        private PriceSourceBase[] GetPrices()
         {
             var prices = new List<PriceSourceBase>();
 
             var investingInfo = new string[][]
             {
-                new string[] { "Прошлые данные - AAPL.csv", "AAPL Цена растет" },
-                new string[] { "Прошлые данные - V.csv", "V Цена растет, а потом сидит на месте" },
-                new string[] { "Прошлые данные - NOK.csv", "NOK Цена растет, а потом падает" },
-                new string[] { "Прошлые данные - AIR.csv", "AIR Рынок непонятно" },
+           //     new string[] { "Прошлые данные - AAPL.csv", "AAPL Цена растет" },
+           //     new string[] { "Прошлые данные - V.csv", "V Цена растет, а потом сидит на месте" },
+           //     new string[] { "Прошлые данные - NOK.csv", "NOK Цена растет, а потом падает" },
+           //     new string[] { "Прошлые данные - AIR.csv", "AIR Рынок непонятно" },
 
         };
             var generatedInfo = new string[][]
           {
-             new string[] { "intraday.generated.txt", "Интрадей сгенерированный" },
+           //  new string[] { "intraday.generated.txt", "Интрадей сгенерированный" },
           };
+
+            var realInfo = new string[][]
+         {
+             new string[] { "air.txt", "Интрадей настоящий октябрь" },
+             new string[] { "air full.txt", "Интрадей настоящий 2020" },
+             new string[] { "air full reverse.txt", "Интрадей настоящий 2020 наоборот" },
+             new string[] { "air 6.txt", "Интрадей настоящий 2020 наоборот" },
+         };
 
             foreach (var info in investingInfo)
             {
@@ -118,6 +126,13 @@ namespace trading
                 });
             }
             foreach (var info in generatedInfo)
+            {
+                prices.Add(new FilePrices(info[0])
+                {
+                    Info = info[1]
+                });
+            }
+            foreach (var info in realInfo)
             {
                 prices.Add(new FilePrices(info[0])
                 {
@@ -173,7 +188,8 @@ namespace trading
 
         private decimal GetBuyPrice(decimal price)
         {
-            return price + SpreadDiffDollar;
+            // return price + SpreadDiffDollar;
+            return price;
         }
 
         private decimal GetSellPrice(decimal price)

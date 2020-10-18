@@ -25,7 +25,6 @@ namespace trading.Prices
                 .Select(x => decimal.Truncate ( decimal.Parse(x) *10000) / 10000).ToArray();
             return prices;
 
-
         }
     }
 }
