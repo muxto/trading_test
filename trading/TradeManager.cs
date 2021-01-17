@@ -7,19 +7,19 @@ using trading.Prices;
 
 namespace trading
 {
-    public class TradeTest
+    public class TradeManager
     {
 
         // разница в покупке-продаже в стакане выбирается максимальная
         // разница в покупке-продаже в %
         // public double SpreadDiff = 0.01;
         // разница в покупке-продаже в $
-        private decimal SpreadDiffDollar = 0.02m;
+        private decimal SpreadDiffDollar = 2 / 100;
 
-        private decimal InitMoney = 1000m;
-        private decimal BrokerFee = 0.0005m;
+        private decimal InitMoney = 4000;
+        private decimal BrokerFee = 0.05m / 100;
 
-        public TradeTest()
+        public TradeManager()
         {
         }
 
@@ -41,6 +41,11 @@ namespace trading
                 {
                     ShowResult(t);
                 }
+
+               foreach (var t in tradingBots)
+               {
+                   SaveFullResult(p.Info, t);
+               }
 
             }
 
@@ -101,7 +106,7 @@ namespace trading
             {
            //     new string[] { "Прошлые данные - AAPL.csv", "AAPL Цена растет" },
            //     new string[] { "Прошлые данные - V.csv", "V Цена растет, а потом сидит на месте" },
-           //     new string[] { "Прошлые данные - NOK.csv", "NOK Цена растет, а потом падает" },
+           //    new string[] { "Прошлые данные - NOK.csv", "NOK Цена растет, а потом падает" },
            //     new string[] { "Прошлые данные - AIR.csv", "AIR Рынок непонятно" },
 
         };
@@ -112,10 +117,11 @@ namespace trading
 
             var realInfo = new string[][]
          {
-             new string[] { "air.txt", "Интрадей настоящий октябрь" },
-             new string[] { "air full.txt", "Интрадей настоящий 2020" },
-             new string[] { "air full reverse.txt", "Интрадей настоящий 2020 наоборот" },
-             new string[] { "air 6.txt", "Интрадей настоящий 2020 наоборот" },
+             //new string[] { "air full.txt", "Интрадей настоящий 2020" },
+             //new string[] { "air.txt", "Интрадей настоящий октябрь" },
+            // new string[] { "air full reverse.txt", "Интрадей настоящий 2020 наоборот" },
+             //new string[] { "air 6.txt", "Интрадей настоящий 2020 6" },
+             new string[] { "gthx 2020.txt", "GTHX настоящий 2020" },
          };
 
             foreach (var info in investingInfo)
@@ -145,11 +151,12 @@ namespace trading
 
         private TradingBotBase[] GetTradingBots()
         {
+            var tradingBotBuy = new TradingBotBuy(InitMoney, BrokerFee);
             var tradingBotInvestor = new TradingBotInvestor(InitMoney, BrokerFee);
             var tradingBotSimple = new TradingBotSimple(InitMoney, BrokerFee);
             //   var tradingBotClassic = new TradingBotClassic(InitMoney, BrokerFee);
 
-            var tradingBots = new TradingBotBase[] { tradingBotInvestor, tradingBotSimple }; // , tradingBotClassic };
+            var tradingBots = new TradingBotBase[] { tradingBotBuy, tradingBotInvestor, tradingBotSimple }; // , tradingBotClassic };
             return tradingBots;
         }
 
@@ -176,8 +183,6 @@ namespace trading
             Console.WriteLine($"Init money {tradingBot.InitMoney}, money {tradingBot.Money}");
             Console.WriteLine($"Balance {tradingBot.Balance}, Total stonks {tradingBot.TotalStonks}, Total {tradingBot.Total}");
             Console.WriteLine(tradingBot.Info);
-            //Console.WriteLine($"All buy {tradingBot.InfoBuy}");
-            //Console.WriteLine($"All sell {tradingBot.InfoSell}");
 
             Console.WriteLine();
             foreach (var i in tradingBot.AdditinalInfo)
@@ -186,12 +191,23 @@ namespace trading
             }
         }
 
+        private void SaveFullResult(string pricesInfo, TradingBotBase tradingBot)
+        {
+            var path = $"{pricesInfo} {tradingBot.GetBotName()}.txt";
+
+            System.IO.File.WriteAllLines(path, tradingBot.FullInfo);
+
+            Console.WriteLine($"Write to {path}");
+        }
+
+        // цена чтобы купить акцию
         private decimal GetBuyPrice(decimal price)
         {
             // return price + SpreadDiffDollar;
             return price;
         }
 
+        // цена чтобы продать акцию
         private decimal GetSellPrice(decimal price)
         {
             return price - SpreadDiffDollar;

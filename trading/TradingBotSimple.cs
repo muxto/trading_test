@@ -7,7 +7,7 @@ namespace trading
 {
     public class TradingBotSimple : TradingBotBase
     {
-        public decimal BuyLimitPercent = 0m;
+        public decimal BuyLimitPercent = 0.2m;
         private decimal _buyLimit => (BuyLimitPercent/100) * CurrentBuyPrice;
 
 
@@ -16,12 +16,17 @@ namespace trading
 
 
 
+        public decimal StopLossPercent = 20m;
+        private decimal _stopLoss => (StopLossPercent/ 100) * CurrentSellPrice;
+
+
+
         private List<decimal> SellPriceList = new List<decimal>();
 
         private void UpdateSellPrice() => SellPriceList.Add(CurrentSellPrice);
 
         private decimal AverageSellPrice => SellPriceList.Average();
-        private decimal AverageSellPrice100 => SellPriceList.TakeLast(100).Average();
+        private decimal AverageSellPriceLast => SellPriceList.TakeLast(20000).Average();
 
 
         private int GetExtremum ()
@@ -36,8 +41,26 @@ namespace trading
             var x2 = SellPriceList[count - 2];
             var x3 = SellPriceList[count - 1];
 
-            if (x2 > x1 && x2 > x3) return 1;
-            if (x2 < x1 && x2 < x3) return -1;
+            //  /^\  /^^
+            if (x2 > x1 && x2 >= x3) return 1;
+
+            //  / / / 
+            if (x2 > x1 && x3 > x2) return 2;
+
+            //  \_/  \__
+            if (x2 < x1 && x2 <= x3) return -1;
+
+            //  \ \ \
+            if (x2 < x1 && x3 < x2)
+            {
+                if ((x1 * (1 - SellLimitPercent)) > x2 &&
+                    (x2 * (1 - SellLimitPercent) > x3))
+                    return -3;
+
+                return -2;
+            }
+
+
 
             return 0;
         }
@@ -79,44 +102,38 @@ namespace trading
                 return true;
             }
 
-            //   var diff = GetSellPriceDiff();
-            //   if (diff <= 0)
-            //   {
-            //       return true;
-            //   }
-
-            //   return false;
-            //
-            //    var simpleBuy = BuyDecisionSimple();
-            //    if (simpleBuy) return true;
-
-            //    var moreBuy = BuyDecisionMore();
-            //    if (moreBuy) return true;
-
-          //  var simpleBuyEnoughBudget = TotalStonks < (Total * 0.5m);
-          //  if (!simpleBuyEnoughBudget) return false;
-
-            var simpleBuy = BuyDecisionSimple();
-            if (simpleBuy) return true;
-
-            var extremum = GetExtremum();
-          if (extremum < 0)
-          {
-             var averageBuyEnoughBudget = TotalStonks < (Total *0.5m);
-             if (!averageBuyEnoughBudget) return false;
-            
-                 var averageBuy = BuyDecisionAverage();
-                 if (averageBuy) return true;
-            }
+            //      var simpleBuy = BuyDecisionSimple();
+            //      if (simpleBuy) return true;
+            //   
+            //       var extremum = GetExtremum();
+            //     if (extremum <= 0)
+            //        {
+            //   
+            //   
+            //                var averageBuyEnoughBudget = TotalStonks < Money;
+            //             if (!averageBuyEnoughBudget) return false;
+            //            
+            //                 var averageBuy = BuyDecisionAverage();
+            //                 if (averageBuy) return true;
+            //      }
 
 
-            // return false;
 
-            //   var averageBuyEnoughBudget = TotalStonks < (Total / 4);
-            //   if (!averageBuyEnoughBudget) return false;
-            //  
-            //       var averageBuy = BuyDecisionAverage();
-            //       if (averageBuy) return true;
+                 var simpleBuy = BuyDecisionSimple();
+                 if (simpleBuy) return true;
+
+               var extremum = GetExtremum();
+             if (extremum == -3)
+                {
+           
+           
+                        var averageBuyEnoughBudget = TotalStonks < Money;
+                     if (!averageBuyEnoughBudget) return false;
+
+                return true;
+                        
+              }
+
 
             return false;
 
@@ -138,10 +155,10 @@ namespace trading
 
             bool BuyDecisionAverage()
             {
-                // return true;
-                 return AveragePrice < AverageSellPrice;
+               //  return true;
+                return AveragePrice < AverageSellPrice;
 
-                var decisionAverage = AveragePrice < AverageSellPrice100;
+                var decisionAverage = AveragePrice < AverageSellPriceLast;
 
                 if (decisionAverage)
                 {
@@ -164,6 +181,8 @@ namespace trading
                 //var averageBuy = SellDecision(newAveragePrice);
                 return averageBuy;
             }
+
+
         }
 
         protected override bool SellDecision()
@@ -171,33 +190,33 @@ namespace trading
             UpdateSellPrice();
 
 
-         var extremum = GetExtremum();
-        if (extremum > 0)
-         {
-           return SellDecision(AveragePrice);
-         }
-        
-            return false;
-
-
-            
+            return SellDecision(AveragePrice);
         }
 
         private bool SellDecision (decimal averagePrice)
         {
-            var canSell = Balance > 1;
-            if (!canSell) return false;
+           var canSell = Balance > 0;
+           if (!canSell) return false;
 
-            // продаем, когда цена продажи с комиссией и лимитом все равно больше средней
-            return (averagePrice + _sellLimit) < GetPriceAndFeeSell(CurrentSellPrice);
+         //  if (averagePrice - _stopLoss > GetPriceAndFeeSell(CurrentSellPrice))
+         //  {
+         //      return true;
+         //  }
+
+        //    var extremum = GetExtremum();
+        //    if (extremum == 1 || extremum == 0)
+            {
+                // продаем, когда цена продажи с комиссией и лимитом все равно больше средней
+                return (averagePrice + _sellLimit) < GetPriceAndFeeSell(CurrentSellPrice);
+            }
+
+            return false;
+
+            
         }
 
-
-
-
-
-
-
-
+        protected override void AskAndBidDecision()
+        {
+        }
     }
 }

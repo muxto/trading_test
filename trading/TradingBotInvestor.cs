@@ -25,5 +25,10 @@ namespace trading
         {
             return false;
         }
+
+        protected override void AskAndBidDecision()
+        {
+            
+        }
     }
 }

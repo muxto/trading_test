@@ -19,7 +19,7 @@ namespace trading
         //
         //   System.IO.File.WriteAllLines("intraday.generated.txt", priceLines);
 
-           var tradeTest = new TradeTest();
+           var tradeTest = new TradeManager();
                tradeTest.Run();
             //tradeTest.GetBestLimits();
 

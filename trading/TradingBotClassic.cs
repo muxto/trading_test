@@ -77,12 +77,9 @@ namespace trading
             return false;
         }
 
-
-
-
-
-
-
-
+        protected override void AskAndBidDecision()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

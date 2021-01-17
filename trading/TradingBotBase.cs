@@ -1,14 +1,47 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace trading
 {
     public abstract class TradingBotBase
     {
+        public class Order
+        {
+            public enum OrderTypes
+            {
+                Ask,
+                Bid
+            }
+
+            public enum OrderResults
+            {
+                InProcess,
+                Done
+            }
+
+            public OrderTypes OrderType;
+            public Guid Guid;
+            public decimal Price;
+            public decimal ProfitSellPrice;
+            public int Count;
+            public OrderResults OrderResult;
+
+            public Order(OrderTypes orderType, decimal price, int count)
+            {
+                Guid = Guid.NewGuid();
+                OrderType = orderType;
+                Price = price;
+                Count = count;
+                OrderResult = OrderResults.InProcess;
+            }
+        }
+
+
         public abstract string GetBotName();
 
-        private int _days = 0;
+        private int _number = 0;
         private string _tab = "\t";
 
 
@@ -27,14 +60,33 @@ namespace trading
         private decimal _currentBuyPrice;
         public decimal CurrentBuyPrice => _currentBuyPrice;
 
+        protected decimal PreviousBuyPrice => _previousBuyPrice;
+        private decimal _previousBuyPrice;
+
         private decimal _currentSellPrice;
         public decimal CurrentSellPrice => _currentSellPrice;
 
+        private decimal _previousSellPrice;
+
+        private decimal _realAveragePrice = 0m;
         private decimal _averagePrice = 0m;
-        private void UpdateAveragePrice()
+
+        protected void SetAveragePrice(decimal averagePrice)
         {
-            _averagePrice = (_averagePrice * (_balance -1) + _currentBuyPrice) / (_balance);
+            _averagePrice = averagePrice;
         }
+
+        protected void ResetAveragePrice()
+        {
+            _averagePrice = _realAveragePrice;
+        }
+
+        private void UpdateAveragePrice(int count)
+        {
+            _averagePrice = (_averagePrice * (_balance - count) + _currentBuyPrice * count) / (_balance);
+           // _realAveragePrice = (_realAveragePrice * (_balance - 1) + _currentBuyPrice) / (_balance);
+        }
+
         public decimal AveragePrice => _averagePrice;
 
 
@@ -47,16 +99,101 @@ namespace trading
 
         public string Info => $"Stonks buy {_stonksBuy}, stonks sell {_stonksSell}, total broker fee {_totalBrokerFee}";
 
-        private List<decimal> _buyPriceList = new List<decimal>();
-        public string InfoBuy => string.Join(", ", _buyPriceList);
+
+        private List<string> _fullInfo = new List<string>();
+
+        public List<string> FullInfo => _fullInfo;
+
+        private void AddFullInfo(decimal buyPrice, decimal sellPrice, bool buy, bool sell)
+        {
+            var buyOrSellStr = buy ? "buy" : sell ? "sell" : "";
 
 
-        private List<decimal> _sellPriceList = new List<decimal>();
-        public string InfoSell => string.Join(", ", _sellPriceList);
+            var record = $"{_number}\t{buyPrice}\t{sellPrice}\t{buyOrSellStr}\t{AveragePrice}";
+            _fullInfo.Add(record);
+        }
 
 
 
         public List<string> AdditinalInfo = new List<string>();
+
+        private bool _hasBuy;
+        private bool _hasSell;
+
+
+        private decimal _freeMoney => _money - _reservedMoney;
+
+        private decimal _reservedMoney => GetReservedMoney();
+
+        protected decimal GetReservedMoney()
+        {
+            var asksReserved = 0;// Asks.Where(x => x.OrderResult == Order.OrderResults.InProcess)
+                //.Sum(x => GetFee(x.Price * x.Count));
+            var bidsReserved = Bids.Where(x => x.OrderResult == Order.OrderResults.InProcess)
+                .Sum(x => GetPriceAndFeeBuy(x.Price * x.Count));
+
+            return asksReserved + bidsReserved;
+        }
+
+        protected int GetReservedStonks()
+        {
+            return Asks.Where(x => x.OrderResult == Order.OrderResults.InProcess).Sum(x => x.Count);
+        }
+
+        // заявки на продажу
+        private List<Order> _orderList = new List<Order>();
+
+        public List<Order> Asks => _orderList.Where(x => x.OrderType == Order.OrderTypes.Ask).ToList();
+        public List<Order> Bids => _orderList.Where(x => x.OrderType == Order.OrderTypes.Bid).ToList();
+
+
+
+        protected bool AddAsk(decimal price, int count)
+        {
+            if ((Balance - GetReservedStonks()) < count)
+            {
+                return false;
+            }
+
+            _orderList.Add(new Order(Order.OrderTypes.Ask, price, count));
+            return true;
+        }
+
+        protected void ClearAsks()
+        {
+            _orderList = _orderList.Where(x => x.OrderType != Order.OrderTypes.Ask).ToList();
+        }
+
+        protected bool AddBid(decimal price, decimal profitPrice, int count)
+        {
+            if (GetPriceAndFeeBuy(price * count) > _freeMoney) return false;
+
+            var order = new Order(Order.OrderTypes.Bid, price, count);
+            order.ProfitSellPrice = profitPrice;
+            
+            _orderList.Add(order);
+            return true;
+        }
+
+        protected void ClearBidsInProgress()
+        {
+            var myBids = _orderList.Where(x =>
+                x.OrderType == Order.OrderTypes.Bid &&
+                x.OrderResult == Order.OrderResults.InProcess
+                ).ToList();
+
+            foreach (var b in myBids)
+            {
+                _orderList.RemoveAll(x => x.Guid == b.Guid);
+            }
+
+        }
+
+        private void ClearDoneOrders()
+        {
+            _orderList = _orderList.Where(x => x.OrderResult == Order.OrderResults.InProcess).ToList();
+        }
+
 
 
         public TradingBotBase(decimal initMoney, decimal brokerFee)
@@ -68,69 +205,113 @@ namespace trading
 
         public void Trade(decimal buyPrice, decimal sellPrice)
         {
+            _hasBuy = false;
+            _hasSell = false;
+
+            _previousBuyPrice = _currentBuyPrice;
+            _previousSellPrice = _currentSellPrice;
+
             _currentBuyPrice = buyPrice;
             _currentSellPrice = sellPrice;
 
+            AskAndBidDecision();
+            AsksAndBids();
+
+
             BuyOrSell();
 
-            _days++;
+            AddFullInfo(_currentBuyPrice, _currentSellPrice, _hasBuy, _hasSell);
+
+            _number++;
         }
 
-        private void BuyOrSell ()
+
+        private bool IsPriceInLimits(decimal limit1, decimal limit2, decimal price)
+        {
+            var max = Math.Max(limit1, limit2);
+            var min = Math.Min(limit1, limit2);
+            return price == max || price == min || (price < max && price > min);
+        }
+
+        private void AsksAndBids()
+        {
+            ClearDoneOrders();
+
+            var asks = Asks.Where(x => x.Price <= _currentSellPrice).ToList();
+
+
+            foreach (var ask in asks)
+            {
+                SellStonks(ask.Price, ask.Count);
+                ask.OrderResult = Order.OrderResults.Done;
+            }
+
+            var bids = Bids.Where(x => x.Price >= _currentBuyPrice ).ToList();
+
+            foreach (var bid in bids)
+            {
+                BuyStonks(bid.Price, bid.Count);
+                bid.OrderResult = Order.OrderResults.Done;
+            }
+        }
+
+        private void BuyOrSell()
         {
             if (SellDecision())
             {
-                SellOneStonk();
+                SellStonks(_currentSellPrice, 1);
                 return;
             }
 
             if (BuyDecision())
             {
-                BuyOneStonk();
+                BuyStonks(_currentBuyPrice, 1);
                 //return;
             }
         }
 
-
-
-        private void BuyOneStonk()
+        private void BuyStonks(decimal price, int count)
         {
-            var buyPrice = _currentBuyPrice;
-
-            var b = GetPriceAndFeeBuy(buyPrice);
+            var fullPrice = price * count;
+            var b = GetPriceAndFeeBuy(fullPrice);
             if (_money < b)
             {
                 return;
             }
 
             _money -= b;
-            _balance++;
+            _balance += count;
 
-            UpdateAveragePrice();
-            _stonksBuy++;
-            _totalBrokerFee += GetFee(buyPrice);
-            _buyPriceList.Add(buyPrice);
+            UpdateAveragePrice(count);
+            _stonksBuy += count;
+            _totalBrokerFee += GetFee(fullPrice);
+
+            _hasBuy = true;
         }
 
-        private void SellOneStonk()
+        private void SellStonks(decimal price, int count)
         {
-            if (_balance < 1)
+            var fullPrice = price * count;
+            if (_balance - count < 1)
             {
                 return;
             }
-            var sellPrice = CurrentSellPrice;
 
-            _money += GetPriceAndFeeSell(sellPrice);
-            _balance--;
 
-            _stonksSell++;
-            _totalBrokerFee += GetFee(sellPrice);
-            _sellPriceList.Add(sellPrice);
+            _money += GetPriceAndFeeSell(fullPrice);
+            _balance -= count;
+
+            _stonksSell += count;
+            _totalBrokerFee += GetFee(fullPrice);
+
+            _hasSell = true;
         }
 
         protected abstract bool BuyDecision();
 
         protected abstract bool SellDecision();
+
+        protected abstract void AskAndBidDecision();
 
         protected decimal GetPriceAndFeeBuy(decimal price)
         {
