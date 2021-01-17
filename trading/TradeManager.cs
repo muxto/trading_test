@@ -46,10 +46,7 @@ namespace trading
                {
                    SaveFullResult(p.Info, t);
                }
-
             }
-
-            
         }
 
         class aaa
@@ -117,7 +114,7 @@ namespace trading
 
             var realInfo = new string[][]
          {
-             //new string[] { "air full.txt", "Интрадей настоящий 2020" },
+            // new string[] { "air full.txt", "Интрадей настоящий 2020" },
              //new string[] { "air.txt", "Интрадей настоящий октябрь" },
             // new string[] { "air full reverse.txt", "Интрадей настоящий 2020 наоборот" },
              //new string[] { "air 6.txt", "Интрадей настоящий 2020 6" },

@@ -146,6 +146,11 @@ namespace trading
         public List<Order> Asks => _orderList.Where(x => x.OrderType == Order.OrderTypes.Ask).ToList();
         public List<Order> Bids => _orderList.Where(x => x.OrderType == Order.OrderTypes.Bid).ToList();
 
+        public List<Order> _orderedAsks => _orderList.Where(x => x.OrderType == Order.OrderTypes.Ask)
+            .OrderBy(x=>x.Price).ToList();
+        public List<Order> _orederdBids => _orderList.Where(x => x.OrderType == Order.OrderTypes.Bid)
+            .OrderBy(x => x.Price).ToList();
+
 
 
         protected bool AddAsk(decimal price, int count)
@@ -193,7 +198,6 @@ namespace trading
         {
             _orderList = _orderList.Where(x => x.OrderResult == Order.OrderResults.InProcess).ToList();
         }
-
 
 
         public TradingBotBase(decimal initMoney, decimal brokerFee)

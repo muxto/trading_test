@@ -11,7 +11,8 @@ namespace trading
         class BidLevel
         {
             public decimal Price { get; set; }
-            public int Count { get; set; }
+            public int AvailableCount { get; set; }
+            public int ExpectedCount { get; set; }
         }
 
         public decimal BuyLimitPercent = 2m;
@@ -62,7 +63,8 @@ namespace trading
 
         public decimal MoneyLevel = 0.60m;
 
-        public int levelsDepth = 30;
+        public decimal minLevelDepth = 0.3m;
+
 
         public decimal bidLimitMoney = 0.05m;
         public decimal bidLimitStonks = 0.05m;
@@ -88,8 +90,6 @@ namespace trading
         }
 
 
-        Dictionary<decimal, decimal> BidAskEquality = new Dictionary<decimal, decimal>();
-
         protected override void AskAndBidDecision()
         {
             if (Balance == 0)
@@ -103,19 +103,10 @@ namespace trading
                 return;
             }
 
-
-
             if (HighPriceUpdated())
             {
-                //ClearAsks();
                 ClearBidsInProgress();
             }
-
-            // var maxLevelPrice = CurrentBuyPrice * maxLimit;
-            // var minLevelPrice = CurrentBuyPrice * minLimit;
-            // var profit = CurrentBuyPrice * profitLimit;
-
-
 
             var doneBids = Bids.Where(x => x.OrderResult == Order.OrderResults.Done);
             foreach (var bid in doneBids)
@@ -125,59 +116,21 @@ namespace trading
                     continue;
                 }
 
-                var stonksSum = Balance * GetPriceAndFeeSell(CurrentSellPrice);
-
-                var stonksLevel = stonksSum / MoneyLevel;
-                var moneyLevel = Money / (1 - MoneyLevel);
-
                 AddAsk(bid.ProfitSellPrice, bid.Count);
             }
 
-
-            
-
-
             var dict = GetLevels();
-
-            var c = 0;
             foreach (var d in dict)
             {
-               if (c > 5) break;
+                if (d.AvailableCount == 0) continue;
+
                 var sellPrice = d.Price + (askLimitMoney * CurrentBuyPrice);
-                AddBid(d.Price, sellPrice, d.Count);
-                c++;
+                AddBid(d.Price, sellPrice, d.AvailableCount);
             }
-
-          //  if (BuyDecisionSimple() )
-          //  {
-          //      var price = GetPriceAndFeeBuy(CurrentBuyPrice);
-          //      
-          //      var sellPrice = AveragePrice + ((SellLimitPercent / 100) * AveragePrice);
-          //      AddBid(price, sellPrice, 1);
-          //  }
-
         }
-
-        bool BuyDecisionSimple()
-        {
-
-            var pricaAndFee = GetPriceAndFeeBuy(CurrentBuyPrice);
-
-            if (freeMoney < GetPriceAndFeeBuy(CurrentBuyPrice))
-            {
-                return false;
-            }
-
-            // докупаем, когда цена покупки с комиссией и лимитом все равно меньше средней
-            var simpleBuy = (AveragePrice - _buyLimit) > pricaAndFee;
-            return simpleBuy;
-        }
-
 
         private BidLevel[] GetLevels()
         {
-            var dict = new List<BidLevel>();
-
             var bidLevels = GetBidLevels();
             var prices = bidLevels.Where(x => x.Price <= CurrentBuyPrice).ToArray();
 
@@ -186,50 +139,45 @@ namespace trading
                 var actualBids = Bids.Where(x => x.Price == p.Price && x.OrderResult == Order.OrderResults.InProcess).ToArray();
                 var actualBidsCount = actualBids.Sum(x => x.Count);
 
-                if (actualBidsCount == p.Count)
+                if (actualBidsCount == p.ExpectedCount)
                 {
                     continue;
                 }
 
-                var sum = dict.Sum(x => x.Price* x.Count);
+                var sum = bidLevels.Sum(x => x.Price * x.AvailableCount);
                 sum = GetPriceAndFeeBuy(sum);
 
                 var availableCount = (int)((freeMoney - sum) / p.Price);
                 if (availableCount == 0)
                 {
-                    return dict.ToArray();
+                    return bidLevels.ToArray();
                 }
 
-                var bidCount = p.Count - actualBidsCount;
-                bidCount = Math.Min(availableCount, bidCount);
-
-                var bidLevel = new BidLevel()
-                {
-                    Price = p.Price,
-                    Count = bidCount
-                };
-                dict.Add(bidLevel);
-
+                var bidCount = p.ExpectedCount - actualBidsCount;
+                p.AvailableCount = Math.Min(availableCount, bidCount);
             }
-            return dict.ToArray();
+            return bidLevels.ToArray();
         }
 
         private BidLevel[] GetBidLevels()
         {
             var bidLevels = new List<BidLevel>();
             var price = HighPrice;
-            var bidCount = (int)((Balance - GetReservedStonks()) * bidLimitStonks);
-            for (int i = 0; i < 30; i++)
+            var bidCount = (int)((Balance - GetReservedStonks() + bidLevels.Sum(x => x.ExpectedCount)) * bidLimitStonks);
+
+            var minLevelPrice = HighPrice * minLevelDepth;
+            
+            while (price > minLevelPrice)
             {
                 price = price * (1 - bidLimitMoney);
 
                 var bidLevel = new BidLevel()
                 {
                     Price = price,
-                    Count = bidCount
+                    ExpectedCount = bidCount
                 };
 
-                bidLevels.Add (bidLevel);
+                bidLevels.Add(bidLevel);
             }
 
             return bidLevels.ToArray();
