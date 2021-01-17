@@ -63,11 +63,11 @@ namespace trading
 
         public decimal MoneyLevel = 0.60m;
 
+        public decimal maxLevelDepth = 0.95m;
         public decimal minLevelDepth = 0.3m;
 
 
         public decimal bidLimitMoney = 0.05m;
-        public decimal bidLimitStonks = 0.05m;
         public decimal askLimitMoney = 0.10m;
 
 
@@ -162,15 +162,27 @@ namespace trading
         private BidLevel[] GetBidLevels()
         {
             var bidLevels = new List<BidLevel>();
-            var price = HighPrice;
-            var bidCount = (int)((Balance - GetReservedStonks() + bidLevels.Sum(x => x.ExpectedCount)) * bidLimitStonks);
-
+            var maxLevelPrice = HighPrice * maxLevelDepth;
             var minLevelPrice = HighPrice * minLevelDepth;
-            
-            while (price > minLevelPrice)
-            {
-                price = price * (1 - bidLimitMoney);
 
+            var n =(int)( Money * 2 / (maxLevelPrice + minLevelPrice));
+            var step = (maxLevelPrice - minLevelPrice) / n;
+
+
+            var bidCount = 1;
+            
+            while (step < 0.01m)
+            {
+                step = step * 2;
+                bidCount = bidCount * 2;
+            }
+
+            step = Math.Round(step, 2);
+
+
+            var price = maxLevelPrice;
+            for (var i = 0; i< n; i++)
+            {
                 var bidLevel = new BidLevel()
                 {
                     Price = price,
@@ -178,6 +190,19 @@ namespace trading
                 };
 
                 bidLevels.Add(bidLevel);
+                price -= step;
+            }
+
+            while (true)
+            {
+                var sum = bidLevels.Sum(x => x.Price * x.ExpectedCount);
+                var diff = Money - sum;
+                if (diff > 0)
+                {
+                    break;
+                    
+                }
+                bidLevels.RemoveAt(bidLevels.Count - 1);
             }
 
             return bidLevels.ToArray();
