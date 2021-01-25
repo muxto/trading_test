@@ -26,8 +26,6 @@ namespace trading
         public void Run()
         {
             var prices = GetPrices();
-
-            
            
             foreach (var p in prices)
             {
@@ -114,10 +112,10 @@ namespace trading
 
             var realInfo = new string[][]
          {
-            // new string[] { "air full.txt", "Интрадей настоящий 2020" },
+             new string[] { "air full.txt", "Интрадей настоящий 2020" },
              //new string[] { "air.txt", "Интрадей настоящий октябрь" },
             // new string[] { "air full reverse.txt", "Интрадей настоящий 2020 наоборот" },
-             //new string[] { "air 6.txt", "Интрадей настоящий 2020 6" },
+             new string[] { "air 6.txt", "Интрадей настоящий 2020 6" },
              new string[] { "gthx 2020.txt", "GTHX настоящий 2020" },
          };
 

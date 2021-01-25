@@ -166,6 +166,11 @@ namespace trading
             var minLevelPrice = HighPrice * minLevelDepth;
 
             var n =(int)( Money * 2 / (maxLevelPrice + minLevelPrice));
+            if (n == 0)
+            {
+                return bidLevels.ToArray();
+            }
+            
             var step = (maxLevelPrice - minLevelPrice) / n;
 
 
@@ -190,19 +195,14 @@ namespace trading
                 };
 
                 bidLevels.Add(bidLevel);
-                price -= step;
-            }
 
-            while (true)
-            {
+                price -= step;
+
                 var sum = bidLevels.Sum(x => x.Price * x.ExpectedCount);
-                var diff = Money - sum;
-                if (diff > 0)
+                if ((Money - sum - (price * bidCount)) < 0)
                 {
                     break;
-                    
                 }
-                bidLevels.RemoveAt(bidLevels.Count - 1);
             }
 
             return bidLevels.ToArray();
